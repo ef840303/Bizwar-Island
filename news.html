@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>更新公告｜資本島：商戰人生</title>
+<meta name="description" content="資本島：商戰人生（Bizwar Island）從 1.0.0 起的更新公告：新增商戰事件池、8 大企業能力養成、融資晉升階段、競爭對手系統、志向與成就雙軌結算評級。">
+<meta name="keywords" content="資本島,商戰人生,Bizwar Island,更新公告,改版,台灣商戰模擬遊戲,changelog">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#0d618">
+<link rel="canonical" href="https://kai890707.github.io/Bizwar-Island/news.html">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'%3E%3Ctext y='.9em' font-size='90'%3E🏝️%3C/text%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="資本島：商戰人生">
+<meta property="og:title" content="更新公告｜資本島：商戰人生">
+<meta property="og:description" content="商戰版重製完成：新的事件池、新能力養成、新評級系統一次看懂。">
+<meta property="og:url" content="https://kai890707.github.io/Bizwar-Island/news.html">
+<meta property="og:image" content="https://kai890707.github.io/Bizwar-Island/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="更新公告｜資本島：商戰人生">
+<meta name="twitter:description" content="商戰版重製完成：新的事件池、新能力養成、新評級系統一次看懂。">
+<meta name="twitter:image" content="https://kai890707.github.io/Bizwar-Island/og-image.png">
+<style>
+  :root{
+    --bg2:#0d618;
+    --surface:#161a28; --surface2:#1d2236;
+    --line:#2b3150; --line2:#39406a;
+    --ink:#e9ecf6; --muted:#9aa2c2; --faint:#6b7398;
+    --accent:#7c8bff; --accent2:#57e0c8;
+    --gold:#ffd76b; --coral:#ff8a99; --good:#5ad07a;
+    --cjk:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:60%;}
+  body{
+    margin:0; font-family:var(--cjk); color:var(--ink); line-height:1.7;
+    background:
+      radial-gradient(1200px 760px at 50% -280px,#232a4d 0%,rgba(35,42,77,0) 62%),
+      var(--bg2);
+    background-color:var(--bg2);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  .wrap{max-width:760px; margin:0 auto; padding:clamp(18px,4vw,40px) clamp(16px,4vw,28px) 72px;}
+
+  .nav{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px;}
+  .back{display:inline-flex; align-items:center; gap:6px; text-decoration:none; color:var(--muted); font-size:13px; font-weight:700;
+    padding:7px 13px; border:1px solid var(--line); border-radius:999px; background:var(--surface); transition:border-color .2s,color .2s;}
+  .back:hover{color:var(--ink); border-color:var(--line2);}
+  .navmark{font-size:12px; letter-spacing:2px; color:var(--faint); font-family:var(--mono);}
+
+  .hero{text-align:center; padding:22px 0 8px; opacity:0; animation:rise .6s cubic-bezier(.2,.7,.3,1) forwards;}
+  .eyebrow{font-size:12px; letter-spacing:3px; color:var(--muted); font-weight:700;}
+  .eyebrow .en{color:var(--faint); font-family:var(--mono); letter-spacing:2px;}
+  h1{
+    margin:.28em 0 .12em; font-size:clamp(30px,8vw,50px); font-weight:800; letter-spacing:2px; text-wrap:balance;
+    background:linear-gradient(92deg,var(--accent) 0%,var(--accent2) 60%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .lede{color:var(--muted); font-size:clamp(14px,3.6vw,16px); margin:0 auto; max-width:34ch; text-wrap:balance;}
+  .verpill{
+    display:inline-flex; align-items:center; gap:8px; margin-top:16px;
+    font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:1px;
+    padding:7px 14px; border-radius:999px; color:#0b0e16;
+    background:linear-gradient(92deg,var(--accent2),var(--accent)); box-shadow:0 6px 22px rgba(124,139,255,.28);
+  }
+  .verpill .tag{font-family:var(--cjk); font-size:11px; background:rgba(11,14,22,.28); padding:2px 7px; border-radius:999px;}
+
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:30px 0 8px;
+    opacity:0; animation:rise .6s .12s cubic-bezier(.2,.7,.3,1) forwards;}
+  .stat{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 8px; text-align:center;}
+  .stat b{display:block; font-family:var(--mono); font-size:clamp(20px,5.5vw,27px); font-weight:800; font-variant-numeric:tabular-nums; color:var(--gold); line-height:1.1;}
+  .stat span{display:block; font-size:11px; color:var(--muted); margin-top:5px; letter-spacing:.5px;}
+  @media(max-width:460px){ .stats{grid-template-columns:repeat(2,1fr);} }
+
+  .timeline{margin-top:34px; position:relative;}
+  .timeline::before{content:""; position:absolute; left:7px; top:12px; bottom:24px; width:2px;
+    background:linear-gradient(180deg,var(--accent),var(--accent2) 40%,var(--line) 60%);}
+  .rel{position:relative; padding-left:34px; margin-bottom:26px; opacity:0; animation:rise .55s cubic-bezier(.2,.7,.3,1) forwards;}
+  .rel::before{content:""; position:absolute; left:0; top:5px; width:16px; height:16px; border-radius:50%;
+    background:var(--bg2); border:3px solid var(--accent2); box-shadow:0 0 0 4px rgba(87,224,200,.12);}
+  .rel.minor::before{border-color:var(--line2); box-shadow:none; width:14px; height:14px; left:1px; top:6px;}
+
+  .rhead{display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 12px; margin-bottom:4px;}
+  .ver{font-family:var(--mono); font-size:17px; font-weight:800; color:var(--accent); letter-spacing:.5px;}
+  .rtitle{font-size:18px; font-weight:800; letter-spacing:.5px;}
+  .rdate{font-family:var(--mono); font-size:12px; color:var(--faint); margin-left:auto;}
+  .latest{font-size:11px; font-weight:700; color:#0b0e16; background:var(--accent2); padding:2px 9px; border-radius:999px; letter-spacing:1px;}
+
+  .card{background:linear-gradient(180deg,var(--surface),var(--surface2)); border:1px solid var(--line); border-radius:16px; padding:16px 16px 6px; margin-top:6px;}
+  .grp{margin-bottom:12px;}
+  .glabel{display:inline-block; font-size:11px; font-weight:800; letter-spacing:1.5px; padding:3px 6px; border-radius:7px; margin-bottom:9px;}
+  .g-job{color:var(--accent2); background:rgba(87,224,200,.12); border:1px solid rgba(87,224,200,.3);}
+  .g-story{color:#aab4ff; background:rgba(124,139,255,.13); border:1px solid rgba(124,139,255,.3);}
+  .g-feat{color:var(--gold); background:rgba(255,85,67,.11); border:1px solid rgba(255,85,67,.28);}
+  .g-fix{color:var(--coral); background:rgba(255,138,153,.1); border:1px solid rgba(255,138,153,.26);}
+  ul{list-style:none; margin:0 0 4px; padding:0; display:flex; flex-direction:column; gap:8px;}
+  li{display:flex; gap:6px; font-size:14.5px;}
+  li .em{flex:none; width:22px; text-align:center; font-size:16px; line-height:1.55;}
+  li b{color:var(--ink); font-weight:700;}
+  li .d{color:var(--muted);}
+  .oneline{color:var(--muted); font-size:14px; margin:2px 0 4px;}
+  .oneline b{color:var(--ink);}
+
+  .cta{margin-top:14px; text-align:center; background:linear-gradient(180deg,var(--surface),var(--surface2));
+    border:1px solid var(--line); border-radius:18px; padding:26px 20px;}
+  .cta h2{margin:0 0 4px; font-size:20px; letter-spacing:1px;}
+  .cta p{margin:0 0 16px; color:var(--muted); font-size:14px;}
+  .play{display:inline-block; text-decoration:none; font-weight:800; letter-spacing:1px; font-size:16px;
+    color:#0b0e16; background:linear-gradient(92deg,var(--accent2),var(--accent)); padding:13px 30px; border-radius:12px;
+    box-shadow:0 8px 26px rgba(124,139,255,.3); transition:transform .08s ease, filter .2s;}
+  .play:hover{filter:brightness(1.06);} .play:active{transform:translateY(1px);}
+  .play:focus-visible{outline:2px solid var(--accent2); outline-offset:3px;}
+  .foot{text-align:center; color:var(--faint); font-size:12px; margin-top:22px; line-height:1.8;}
+  .foot a{color:var(--muted);}
+
+  @keyframes rise{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;}}
+  @media(prefers-reduced-motion:reduce){ *{animation:none!important;} .hero,.stats,.rel{opacity:1!important;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="nav">
+    <a class="back" href="./">← 回到遊戲</a>
+    <span class="navmark">CHANGELOG</span>
+  </nav>
+
+  <header class="hero">
+    <div class="eyebrow">🏝️ 資本島：商戰人生 &nbsp;<span class="en">BIZWAR ISLAND</span></div>
+    <h1>更新公告</h1>
+    <p class="lede">創立一家公司，看看你的企業生涯走向何方 👇</p>
+    <div class="verpill">v1.0.0 <span class="tag">最新</span></div>
+  </header>
+
+  <section class="stats" aria-label="更新總覽數字">
+    <div class="stat"><b>+7</b><span>新職業</span></div>
+    <div class="stat"><b>20＋</b><span>新故事線</span></div>
+    <div class="stat"><b>30＋</b><span>新成就</span></div>
+    <div class="stat"><b>9</b><span>經營階段</span></div>
+  </section>
+
+  <main class="timeline">
+      <div class="rel latest">
+        <div class="rhead">
+          <span class="ver">1.0.0</span>
+          <span class="rtitle">資本島：商戰人生 — 商戰版重製</span>
+          <span class="latest">最新</span>
+          <span class="rdate">2026-08-17</span>
+        </div>
+        <div class="card">
+          <div class="grp">
+            <span class="glabel g-feat">新增</span>
+            <ul>
+              <li><span class="em">🏝️</span><span><b>商戰主題重製</b><span class="d"> — 從「投胎→人生→死亡」改造為「創企→經營→退場」：創立公司、逐年經營、經歷融資、併購、上市與公關危機，最終結算評級 D 到 SSS</span></span></li>
+              <li><span class="em">🎬</span><span><b>三種起點×八種領域×八個總部</b><span class="d"> — 夜市擺攤、科技新創、家族企業三條起跑線；餐飲、電商、SaaS、AI、半導體、金融、不動產、生技八大領域；台北到花蓮八城總部各有加值</span></span></li>
+              <li><span class="em">💰</span><span><b>全新經濟模型</b><span class="d"> — 現金、市值估值、股權稀釋、融資輪次（種子→天使→A→B→C→D→上市）完整建模；估值＝營收×領域倍數×階段加成</span></span></li>
+              <li><span class="em">💪</span><span><b>8 大企業能力養成</b><span class="d"> — 遠見、管理、技術、行銷、財務、政商、談判、江湖，每年分配骰子養成，影響事件成敗與晉升門檻</span></span></li>
+              <li><span class="em">⚔️</span><span><b>競爭對手系統</b><span class="d"> — 經營中後段會冒出對手搶市佔、打價格戰，可正面迎戰、併購或眼睜睜看它倒閉</span></span></li>
+              <li><span class="em">🇹🇼</span><span><b>台灣商戰梗事件池</b><span class="d"> — 120 個商戰事件：抬雞店概念股、投顧老師割韭菜、立委關說招標、缺電缺蛋之亂、地下錢莊兄弟喬事、股權爭奪……純屬虛構娛樂</span></span></li>
+            </ul>
+          </div>
+          <div class="grp">
+            <span class="glabel g-job">變更</span>
+            <ul>
+              <li><span class="em">🎲</span><span><b>種子碼隨機系統</b><span class="d"> — 起點之外，家世資本、創辦人天賦、市場環境由種子碼決定；同種子同結果，可分享種子挑戰朋友</span></span></li>
+              <li><span class="em">🎯</span><span><b>雙軌目標系統</b><span class="d"> — 創立時從 6 大志向中擇一（首富之路、獨角獸、基業傳承……）；志向達成度直接影響評級上限——沒有實現志向，就稱不上傳奇</span></span></li>
+              <li><span class="em">📜</span><span><b>企業里程碑與成就圖鑑</b><span class="d"> — 破億、破百億、獨角獸、富比世、登頂首富等里程碑即時成就；50 項成就圖鑑用 localStorage 永久保存</span></span></li>
+              <li><span class="em">📈</span><span><b>晉升機制</b><span class="d"> — 晉升下一融資輪需能力達標＋機率判定，純實力不足時可多練能力或等待市場時機</span></span></li>
+              <li><span class="em">🦄</span><span><b>獨角獸俱樂部</b><span class="d"> — 估值突破十億美元即入列，台灣市場最夢幻的創業里程碑</span></span></li>
+            </ul>
+          </div>
+          <div class="grp">
+            <span class="glabel g-fix">修復</span>
+            <ul>
+              <li><span class="em">🐛</span><span><b>事件判定一致性</b><span class="d"> — 修正多起「選項成效與文案不一致」的雙 RNG 判定；統一 chance() 機率判定邏輯</span></span></li>
+              <li><span class="em">🐛</span><span><b>結算畫面修正</b><span class="d"> — 修復結局標題未對應、能力峰值 NaN、收支總結欄位錯誤、市值曲線截斷等問題</span></span></li>
+              <li><span class="em">🐛</span><span><b>員工數修正</b><span class="d"> — 進入正式營運階段後自動招募初始團隊，避免零員工經營的詭異情境</span></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  <section class="cta">
+    <h2>🚀 準備好創業了嗎？</h2>
+    <p>免下載、免註冊，開網頁就能玩。</p>
+    <a class="play" href="./">立即遊玩 →</a>
+  </section>
+
+  <p class="foot">
+    <a href="./index.html">資本島：商戰人生</a> · v1.0.0 首發於 2026-08-17 ·
+    <a href="https://github.com/kai890707/Bizwar-Island">GitHub</a><br>
+    事件、人物、情節純屬虛構，僅供娛樂，與真實個人或團體無關。
+  </p>
+
+</div>
+</body>
+</html>
