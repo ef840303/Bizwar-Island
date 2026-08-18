@@ -254,7 +254,7 @@
     <div class="log" id="childhoodLog" style="max-height:24vh; margin-top:0;"></div>
     <div class="stats" id="childStats" style="margin-top:12px;"></div>
     <h2 class="sec" style="margin-top:14px;">🎯 選擇你的霸業志向 <small>結算會看達成度</small></h2>
-    <div class="grid c2" id="goalGrid"></div>
+    <div class="grid c3" id="goalGrid"></div>
     <div class="btn-row">
       <button class="btn" id="btnBeginLife" disabled>先選一個志向 →</button>
     </div>
@@ -510,6 +510,12 @@ const GOALS=[
   {id:"empire",icon:"🌏",nm:"出海稱霸",desc:"打進海外市場、全球布局、世界 500 強",prog:S=>clamp01((S.flags.global?0.4:0)+(S.flags.world500?0.4:0)+(S.mktShare>=0.6?0.2:0))},
   {id:"corner",icon:"🏪",nm:"一隅之長",desc:"深耕在地、穩健獲利、細水長流的小而美",prog:S=>clamp01((S.profitHist.length>=8?0.4:0)+((S.peak.revenue||0)>=5e7?0.3:0)+(S.flags.corner?0.3:0))},
   {id:"tycoon",icon:"👑",nm:"梟雄霸業",desc:"併購、壟斷、股權攻防——手段黑白不重要,規模才重要",prog:S=>clamp01((S.flags.mergerKing?0.35:0)+(S.mktShare>=0.5?0.35:0)+(S.flags.hostile?0.3:0)+(S.flags.darkline?0.2:0))},
+  {id:"mogul",icon:"🏦",nm:"財團巨頭",desc:"股價就是你的名片——從 IPO 起封頂 10 倍,站在資本市場之巔",prog:S=>{const h=S.stockHist||[];const ip=S.ipoPrice||0;return clamp01((h.length?Math.max(...h)/Math.max(1,ip):0)/10);}},
+  {id:"happycorp",icon:"🌈",nm:"員工王國",desc:"千人以上的幸福企業——規模與士氣雙豐收,人人搶著進的公司",prog:S=>clamp01(((S.peak.staff||0)/1000*0.5)+((S.peak.happy||0)/100*0.3)+(S.flags.corner?0.2:0))},
+  {id:"techking",icon:"⚗️",nm:"研發大國",desc:"技術封神、專利護城河——把新創做到靠產品統治市場",prog:S=>clamp01((Math.max(S.peak.tech||0)/100*0.55)+((S.flags.newPatent||0)*0.15)+(S.peak.tech>=90?0.25:0)+((S.flags.listed||S.stageIdx>=6)?0.2:0))},
+  {id:"cashking",icon:"💴",nm:"財報聖手",desc:"穩如定存——連年獲利、現金流從不燒錢,用紀律贏得市場",prog:S=>clamp01(((S.profitHist||[]).length/12*0.6)+(((S.peak.mcap||0)>=1e8)?0.2:0)+(S.flags.survived?0.2:0))},
+  {id:"powerbroker",icon:"🏯",nm:"政商紅人",desc:"白手套與紅頂商人——政商點數拉滿,關說招標樣樣通",prog:S=>clamp01((Math.max(S.peak.politics||0)/100*0.5)+(S.flags.lobby?0.3:0)+(S.flags.govSubsidy?0.2:0))},
+  {id:"streetking",icon:"🌘",nm:"江湖傳奇",desc:"白道黑道都是朋友——手腕封神,江湖傳頌你的名號",prog:S=>clamp01((Math.max(S.peak.street||0)/100*0.5)+(S.flags.darkline?0.25:0)+(S.flags.reformed?0.25:0))},
 ];
 const ACHIEVEMENTS=[
   // 階段
@@ -578,7 +584,7 @@ const ACTIONS=[
   {id:"hire",icon:"👥",t:"擴編招募人才",cond:S=>S.age>=1&&S.money>300000,act:S=>{let ok=chance(S,0.55+sk("mgmt")*0.04);let cost=Math.round(S.staffCount*800000+600000);if(ok){S.staffCount+=Math.max(1,Math.round(S.staffCount*0.2+2));return{log:`招募一批新血加入，團隊更壯大了（+${Math.round(S.staffCount*0.1)} 人）。`,d:[...money(S,-cost),...inc(S,{mgmt:2})]};}return{log:"開了一堆職缺，卻招不到理想人才。",d:[...money(S,-cost*0.3),...inc(S,{happy:-2})]};}},
   {id:"layoff",icon:"🪓",t:"裁員止血",cond:S=>S.age>=1&&S.staffCount>=5,act:S=>{let keep=Math.max(1,Math.round(S.staffCount*0.7));let cut=S.staffCount-keep;S.flags.layoff=true;S.staffCount=keep;return{log:`含淚裁掉 ${cut} 位同仁，公司得以續命，但人心惶惶。`,d:[...money(S,Math.round(cut*1200000)),...inc(S,{happy:-8,street:2,vision:-2})]};}},
   {id:"rnd",icon:"⚙️",t:"投入研發",cond:S=>S.age>=1&&S.money>500000,act:S=>{let amt=Math.min(S.money*0.3,5000000);let ok=chance(S,0.4+sk("tech")*0.045);return{log:ok?"研發突破！產品代差拉開，競爭對手望塵莫及。":"研發燒錢、進度落後，被競品超車。",d:[...money(S,-amt),...inc(S,{tech:ok?4:1,happy:ok?4:-3})]};}},
-  {id:"ipo",icon:"🔔",t:"啟動 IPO 計畫",cond:S=>S.year>=3&&S.stageIdx>=5&&!S.flags.listed&&S.money>1e7,act:S=>{let ok=chance(S,0.35+sk("finance")*0.05);if(ok){S.flags.listed=true;S.stageIdx=6;S.stage=S.stageKeys[6];S.money+=1e8;const shares=S.staffCount*5000+500000;S.stockPrice=Math.round(S.mcap/shares);return{log:`🔔 IPO 過會成功！「${S.name}」正式敲鐘上市，募得 1 億元資金，股價起步 ${fmtMoney(S.stockPrice)} 元。`,d:[...inc(S,{vision:5,street:3})]};}S.flags.ipoFailed=true;return{log:"上市聆訊被打回，券商建議再練一年。",d:[...money(S,-3000000),...inc(S,{happy:-4,finance:2})]};}},
+  {id:"ipo",icon:"🔔",t:"啟動 IPO 計畫",cond:S=>S.year>=3&&S.stageIdx>=5&&!S.flags.listed&&S.money>1e7,act:S=>{let ok=chance(S,0.35+sk("finance")*0.05);if(ok){S.flags.listed=true;S.stageIdx=6;S.stage=S.stageKeys[6];S.money+=1e8;const shares=S.staffCount*5000+500000;S.stockPrice=Math.round(S.mcap/shares);S.ipoPrice=S.ipoPrice||S.stockPrice;return{log:`🔔 IPO 過會成功！「${S.name}」正式敲鐘上市，募得 1 億元資金，股價起步 ${fmtMoney(S.stockPrice)} 元。`,d:[...inc(S,{vision:5,street:3})]};}S.flags.ipoFailed=true;return{log:"上市聆訊被打回，券商建議再練一年。",d:[...money(S,-3000000),...inc(S,{happy:-4,finance:2})]};}},
   {id:"abroad",icon:"🌏",t:"進軍海外市場",cond:S=>S.age>=4&&S.money>5000000,act:S=>{let ok=chance(S,0.3+sk("sales")*0.04+sk("nego")*0.03);if(ok){S.flags.global=true;return{log:"出海成功！海外訂單進場，營收結構更穩健。",d:[...money(S,-5000000),...inc(S,{sales:4,vision:3})]};}return{log:"出海出包，文化水土不服，虧了一大筆。",d:[...money(S,-5000000),...inc(S,{happy:-5})]};}},
   {id:"buyback",icon:"🛡️",t:"股票回購護盤",cond:S=>S.flags.listed&&S.money>5e6&&S.enemyStake>0,act:S=>{let amt=Math.min(S.money*0.25,5e7);S.money-=amt;const shares=S.staffCount*5000+500000;S.enemyStake=Math.max(0,S.enemyStake-amt/Math.max(1,S.stockPrice)/shares*100*1.5);S.mcap=Math.max(1e6,Math.round(S.mcap*1.05));return{log:`斥資 ${fmtMoney(amt)} 回購自家股票,股價撐起來了,掠奪者持股降至 ${Math.round(S.enemyStake*10)/10}%。`,d:[...inc(S,{street:2,finance:2})]};}},
   {id:"reissue",icon:"📜",t:"現金增發",cond:S=>S.flags.listed,act:S=>{let ok=chance(S,0.6+sk("finance")*0.04);if(ok){let amt=Math.round(S.mcap*0.08+1e6);S.money+=amt;S.equity=Math.max(20,S.equity-4);return{log:`現金增發募得 ${fmtMoney(amt)}，現金流滿血復活，但股權又被攤薄。`,d:[...inc(S,{finance:2,happy:-2})]};}return{log:"增發認購不足，市場對你的股票沒信心。",d:[...inc(S,{happy:-4,finance:1})]};}},
@@ -672,7 +678,7 @@ function runOps(S){
 
   // 高峰記錄
   S.peak=S.peak||{}; S.peak.netWorth=Math.max(S.peak.netWorth||0,netWorth(S)); S.peak.mcap=Math.max(S.peak.mcap||0,S.mcap);
-  S.peak.share=Math.max(S.peak.share||0,S.mktShare); S.peak.staff=Math.max(S.peak.staff||0,S.staffCount); S.peak.revenue=Math.max(S.peak.revenue||0,S.revenue);
+  S.peak.share=Math.max(S.peak.share||0,S.mktShare); S.peak.staff=Math.max(S.peak.staff||0,S.staffCount); S.peak.revenue=Math.max(S.peak.revenue||0,S.revenue);S.peak.stock=Math.max(S.peak.stock||0,S.stockPrice||0);
 }
 /* 財務循環：估值、融資稀釋、股權攻防 */
 function runFinance(S){
@@ -975,7 +981,7 @@ const EV=[
 {id:"mentor",min:2,max:18,kind:"minor",w:5,eff:S=>{
   mile(S,"🧭","遇到業界前輩傾囊相授,一席話點醒你。");return inc(S,{vision:4,finance:1,happy:2});}},
 {id:"patent",min:3,max:20,kind:"minor",w:5,cond:S=>S.stats.tech>=40,eff:S=>{
-  if(chance(S,0.5)){S.mcap=Math.round((S.mcap||S.revenue*3)*1.2);mile(S,"📜","關鍵專利核准!護城河加寬。");}
+  if(chance(S,0.5)){S.mcap=Math.round((S.mcap||S.revenue*3)*1.2);S.flags.newPatent=true;mile(S,"📜","關鍵專利核准!護城河加寬。");}
   return inc(S,{tech:3});}},
 {id:"lawsuit",min:4,max:26,kind:"minor",w:6,eff:S=>{
   let cost=Math.round(2e6+S.revenue*0.05);S.money-=cost;S.ledger.litigation=(S.ledger.litigation||0)+cost;
@@ -1332,7 +1338,7 @@ function presentChoice(ev){
     const res=typeof o.res==="function"?o.res(S):(o.res||"");
     logLine(S.age,o.t+(res?"。"+res:"。"),deltas);
     $("choiceArea").innerHTML="";S.paused=false;$("btnNext").disabled=false;
-    afterMain();
+    afterMonth();
   });
 }
 /* ---------- 特訓：骰子養成面板（借鏡 yakyulife「每顆骰子都算數」＋潛力天花板） ---------- */
@@ -1368,7 +1374,7 @@ function renderSkillPanel(){
 }
 function finishTraining(){
   S.dice=[];selDie=-1;$("choiceArea").innerHTML="";S.paused=false;$("btnNext").disabled=false;
-  renderGame();afterMain();
+  renderGame();afterMonth();
 }
 function checkDeath(){
   const s=S.stats;let die=false,reason="";
