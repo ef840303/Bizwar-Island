@@ -344,6 +344,7 @@ function rnd(n){return Math.floor(R()*n);}
 function pick(a){return a[rnd(a.length)];}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function fmtMoney(n){const neg=n<0;let v=Math.abs(n);let s;if(v>=1e8)s=(v/1e8).toFixed(v>=1e9?0:2).replace(/\.?0+$/,'')+"億";else if(v>=1e4)s=Math.round(v/1e4).toLocaleString()+"萬";else s=Math.round(v).toLocaleString();return (neg?"負":"")+"NT$"+s;}
+function fmtDelta(n){return fmtMoney(n);}
 /* ---------- 起點（創業的第一步）：決定你的本金與初始資源 ----------
    money=初始資金；equity=初始持股；note=起點說明 ---------- */
 const ORIGINS=[
@@ -577,26 +578,30 @@ const ACTIONS=[
   {id:"hire",icon:"👥",t:"擴編招募人才",cond:S=>S.age>=1&&S.money>300000,act:S=>{let ok=chance(S,0.55+sk("mgmt")*0.04);let cost=Math.round(S.staffCount*800000+600000);if(ok){S.staffCount+=Math.max(1,Math.round(S.staffCount*0.2+2));return{log:`招募一批新血加入，團隊更壯大了（+${Math.round(S.staffCount*0.1)} 人）。`,d:[...money(S,-cost),...inc(S,{mgmt:2})]};}return{log:"開了一堆職缺，卻招不到理想人才。",d:[...money(S,-cost*0.3),...inc(S,{happy:-2})]};}},
   {id:"layoff",icon:"🪓",t:"裁員止血",cond:S=>S.age>=1&&S.staffCount>=5,act:S=>{let keep=Math.max(1,Math.round(S.staffCount*0.7));let cut=S.staffCount-keep;S.flags.layoff=true;S.staffCount=keep;return{log:`含淚裁掉 ${cut} 位同仁，公司得以續命，但人心惶惶。`,d:[...money(S,Math.round(cut*1200000)),...inc(S,{happy:-8,street:2,vision:-2})]};}},
   {id:"rnd",icon:"⚙️",t:"投入研發",cond:S=>S.age>=1&&S.money>500000,act:S=>{let amt=Math.min(S.money*0.3,5000000);let ok=chance(S,0.4+sk("tech")*0.045);return{log:ok?"研發突破！產品代差拉開，競爭對手望塵莫及。":"研發燒錢、進度落後，被競品超車。",d:[...money(S,-amt),...inc(S,{tech:ok?4:1,happy:ok?4:-3})]};}},
-  {id:"ipo",icon:"🔔",t:"啟動 IPO 計畫",cond:S=>S.age>=3&&S.stageIdx>=5&&S.money>1e7,act:S=>{let ok=chance(S,0.35+sk("finance")*0.05);if(ok){return{log:"IPO 過會成功！公司敲鐘上市，融資與品牌力一飛沖天。",d:[...inc(S,{vision:5})]};}S.flags.ipoFailed=true;return{log:"上市聆訊被打回，券商建議再練一年。",d:[...money(S,-3000000),...inc(S,{happy:-4,finance:2})]};}},
+  {id:"ipo",icon:"🔔",t:"啟動 IPO 計畫",cond:S=>S.year>=3&&S.stageIdx>=5&&!S.flags.listed&&S.money>1e7,act:S=>{let ok=chance(S,0.35+sk("finance")*0.05);if(ok){S.flags.listed=true;S.stageIdx=6;S.stage=S.stageKeys[6];S.money+=1e8;const shares=S.staffCount*5000+500000;S.stockPrice=Math.round(S.mcap/shares);return{log:`🔔 IPO 過會成功！「${S.name}」正式敲鐘上市，募得 1 億元資金，股價起步 ${fmtMoney(S.stockPrice)} 元。`,d:[...inc(S,{vision:5,street:3})]};}S.flags.ipoFailed=true;return{log:"上市聆訊被打回，券商建議再練一年。",d:[...money(S,-3000000),...inc(S,{happy:-4,finance:2})]};}},
   {id:"abroad",icon:"🌏",t:"進軍海外市場",cond:S=>S.age>=4&&S.money>5000000,act:S=>{let ok=chance(S,0.3+sk("sales")*0.04+sk("nego")*0.03);if(ok){S.flags.global=true;return{log:"出海成功！海外訂單進場，營收結構更穩健。",d:[...money(S,-5000000),...inc(S,{sales:4,vision:3})]};}return{log:"出海出包，文化水土不服，虧了一大筆。",d:[...money(S,-5000000),...inc(S,{happy:-5})]};}},
+  {id:"buyback",icon:"🛡️",t:"股票回購護盤",cond:S=>S.flags.listed&&S.money>5e6&&S.enemyStake>0,act:S=>{let amt=Math.min(S.money*0.25,5e7);S.money-=amt;const shares=S.staffCount*5000+500000;S.enemyStake=Math.max(0,S.enemyStake-amt/Math.max(1,S.stockPrice)/shares*100*1.5);S.mcap=Math.max(1e6,Math.round(S.mcap*1.05));return{log:`斥資 ${fmtMoney(amt)} 回購自家股票,股價撐起來了,掠奪者持股降至 ${Math.round(S.enemyStake*10)/10}%。`,d:[...inc(S,{street:2,finance:2})]};}},
+  {id:"reissue",icon:"📜",t:"現金增發",cond:S=>S.flags.listed,act:S=>{let ok=chance(S,0.6+sk("finance")*0.04);if(ok){let amt=Math.round(S.mcap*0.08+1e6);S.money+=amt;S.equity=Math.max(20,S.equity-4);return{log:`現金增發募得 ${fmtMoney(amt)}，現金流滿血復活，但股權又被攤薄。`,d:[...inc(S,{finance:2,happy:-2})]};}return{log:"增發認購不足，市場對你的股票沒信心。",d:[...inc(S,{happy:-4,finance:1})]};}},
+  {id:"raiderEvade",icon:"🕊️",t:"引入白衣騎士",cond:S=>S.flags.listed&&S.enemyStake>=10,act:S=>{let ok=chance(S,0.4+sk("nego")*0.05+sk("street")*0.04);if(ok){S.enemyStake=Math.max(0,S.enemyStake-15);S.flags.whiteKnight=true;return{log:"白衣騎士進場接盤掠奪者的籌碼,敵意收購解除——代價是讓出一部分股權。",d:inc(S,{nego:3,street:2})};}return{log:"談判破裂,掠奪者繼續吃貨。",d:inc(S,{happy:-4,nego:1})};}},
   {id:"pr",icon:"🎙️",t:"公關止血",cond:S=>S.age>=1&&S.flags.scandal,act:S=>{let ok=chance(S,0.5+sk("sales")*0.05);S.flags.scandal=false;return{log:ok?"危機公關奏效，輿論反轉，品牌回暖！":"公關沒救回來，輿論持續發酵。",d:[...money(S,-2000000),...inc(S,{sales:ok?3:0,happy:ok?5:-3})]};}},
   {id:"lobby",icon:"🏛️",t:"疏通政商關係",cond:S=>S.age>=3&&S.money>1000000,act:S=>{let ok=chance(S,0.35+sk("politics")*0.05);if(ok){S.flags.lobby=true;return{log:"拜訪委員與官員後，接下來一輪政策紅利你吃到了。",d:[...money(S,-1500000),...inc(S,{politics:4,vision:1})]};}return{log:"拜會無功而返，還被記者偷拍到。",d:[...money(S,-800000),...inc(S,{politics:1,happy:-3})]};}},
   {id:"merge",icon:"🤝",t:"出手併購小公司",cond:S=>S.age>=5&&S.money>1e7,act:S=>{let ok=chance(S,0.45+sk("nego")*0.05+sk("finance")*0.03);let amt=Math.min(S.money*0.4,3e7);if(ok){S.flags.mergerKing=(S.flags.mergerKing||0)+1;return{log:"併購成交！拿下小競品的技術與客群，市占再上。",d:[...money(S,-amt),...inc(S,{nego:3,vision:2})]};}return{log:"併購談破局，對方轉頭投入對手陣營。",d:[...money(S,-amt*0.1),...inc(S,{nego:1,happy:-3})]};}},
   {id:"hostile",icon:"🔪",t:"惡意收購對手",cond:S=>S.age>=6&&S.money>5e7&&S.staffCount>=20,act:S=>{let ok=chance(S,0.3+sk("finance")*0.05+sk("street")*0.04);let amt=Math.min(S.money*0.6,1e8);if(ok){S.flags.hostile=true;S.flags.mergerKing=(S.flags.mergerKing||0)+1;return{log:"惡意收購成功，市場譁然——你拿到了一家大對手。",d:[...money(S,-amt),...inc(S,{street:4,vision:3})]};}S.flags.poisonPill=true;return{log:"對手祭出毒丸防禦，收購失敗，股價反被狙擊。",d:[...money(S,-amt*0.1),...inc(S,{street:2,happy:-4})]};}},
   {id:"fundraise",icon:"🎙️",t:"找投資人路演",cond:S=>S.age>=1&&S.stageIdx<7,act:S=>{let ok=chance(S,0.4+sk("vision")*0.04+sk("finance")*0.03);if(ok){S.flags.roundsFunded=(S.flags.roundsFunded||0)+1;let amt=Math.min(5e6*(S.stageIdx+1),2e8);S.money+=amt;S.flags.diluteNext=true;return{log:`路演成功！投資人砸下 ${fmtMoney(amt)}，但你的股權又被稀釋了。`,d:inc(S,{vision:2,finance:2})};}return{log:"路演冷場，投資人全數離席。",d:inc(S,{happy:-3,vision:1})};}},
-  {id:"costCut",icon:"🧾",t:"全面緊縮開銷",cond:S=>S.age>=1,act:S=>{return{log:"全面緊縮：砍行銷、延付款、租更小的辦公室。現金流轉正了，但士氣低迷。",d:[...money(S,Math.round(S.money*0.08+500000)),...inc(S,{happy:-6,vision:1})]};}},
+  {id:"costCut",icon:"🧾",t:"全面緊縮開銷",cond:S=>S.year>=1,act:S=>{return{log:"全面緊縮：砍行銷、延付款、租更小的辦公室。現金流轉正了，但士氣低迷。",d:[...money(S,Math.round(S.money*0.08+500000)),...inc(S,{happy:-6,vision:1})]};}},
 ];
 let S=null;
 function newState(){
   const stageKeys=["籌備期","種子輪","天使輪","A 輪","B 輪","C 輪","上市","控股","傳承"];
   const s0={
-    age:0, alive:true, paused:false, year:0,
+    age:0, alive:true, paused:false, year:0, month:1,
     name:setup.name, founder:setup.founder, origin:ORIGINS.find(o=>o.id===setup.origin),
     sector:SECTORS.find(sc=>sc.id===setup.sector), hq:HQS.find(h=>h.id===setup.hq),
     seed:setup.seed, talent:null, cap:null, goal:setup.goal||null,
     stats:{vision:48,mgmt:48,tech:48,sales:48,finance:48,politics:48,nego:48,street:48,happy:70,luck:50,faith:0},
     skills:{vision:0,mgmt:0,tech:0,sales:0,finance:0,politics:0,nego:0,street:0}, skillCap:{}, dice:[], lastAlloc:0,
     money:0, mcap:0, revenue:0, equity:100, stage:"籌備期", stageIdx:0, stageKeys:stageKeys,
+    stockPrice:0, enemyStake:0, stockHist:[],
     staffCount:0, mktShare:0, valuation:0, totalRaised:0, cashHist:[], mcapHist:[], profitHist:[], revHist:[],
     bonusDice:0, diceGiven:{}, wealthMile:{}, ageMile:{}, milestones:[], flags:{}, evLast:{}, evCount:{},
     log:[], achv:[], ending:null, pendingDeath:null, score:0, actedThisYear:false, pending:[],
@@ -611,25 +616,25 @@ function netWorth(S){return S.money+Math.max(0,S.mcap||0)*(S.equity/100);}
 function fmtStage(S){return S.stage||(S.stageKeys[S.stageIdx]||"籌備期");}
 /* 營運循環：營收、毛利、固定成本、人才流失、市占、隨機市場波動 */
 function runOps(S){
-  if(S.age===0)return;
+  if(S.age<12)return;
   // 團隊成立:進入正式營運後若還沒組團隊,自動招募初始團隊
-  if(S.age===0)return;
+  if(S.age<12)return;
   // 團隊成立:進入正式營運後若還沒組團隊,自動招募初始團隊
   if(S.stageIdx>=1&&S.staffCount===0){S.staffCount=3;S.flags.hired=true;}
   const gm=S.sectorGm, st=S.stageIdx;
   let rev=S.revenue||0;
   // 成長引擎：能力×階段×領域成長率
-  let grow=0.05*S.sectorGrowth+(S.stats.sales*0.008+S.stats.tech*0.007+S.stats.vision*0.005)*(1+st*0.12);
+  let grow=0.05*S.sectorGrowth+(S.stats.sales*0.004+S.stats.tech*0.0035+S.stats.vision*0.0025)*(1+st*0.12);
   // 領域景氣波動
-  grow+=(R()-0.5)*0.16; if(R()<0.035)grow-=0.3+R()*0.25;
+  grow+=(R()-0.5)*0.08; if(R()<0.035)grow-=0.3+R()*0.25;
   if(S.flags.scandal)grow-=0.15;
-  if(S.flags.lobby&&S.age%2===0)grow+=0.05;
+  if(S.flags.lobby&&S.age%24===0)grow+=0.05;
   // 人均營收上限:團隊規模決定營收天花板(避免 3 人做百億),超標時漸進收斂
   const perCap=2e6*(1+st*0.9)+(S.stats.sales*4e4)+(S.stats.tech*3e4);
   const cap=S.staffCount>0?S.staffCount*perCap:perCap*3;
   if(rev>cap*1.2)grow=Math.min(grow,-0.12);      // 嚴重超標先止血
   else if(rev>cap)grow=Math.min(grow,(cap/rev-1)*0.5); // 輕微超標漸進收斂
-  grow=clamp(grow,-0.5,0.5);
+  grow=clamp(grow,-0.15,0.25);
   S.revenue=Math.max(0,Math.round(rev*(1+grow)));
   // 人才成本:早期每人成本較低,避免虧損滾雪球
   let costPer=(st>=5?2.2e6:(st>=3?1.6e6:1e6));
@@ -643,13 +648,27 @@ function runOps(S){
   S.money+=S.profitLast;
   S.ledger=(S.ledger||{op:0,raise:0,invest:0,litigation:0});
   S.ledger.op+=S.profitLast;
+  // 缺口型自然擴編:營收超出團隊容量時才補人,受階段上限約束,逐月追趕
+  const staffCap=[3,20,60,200,600,1500,4000,12000,25000][Math.min(S.stageIdx,8)]||25000;
+  if(S.staffCount<staffCap){
+    const need=S.revenue/perCap-S.staffCount*1.15;
+    if(need>0&&S.profitLast>0){
+      let hires=Math.max(0,Math.round(need*0.05));
+      hires=Math.min(hires,Math.round(S.staffCount*0.15)+3,staffCap-S.staffCount);
+      if(hires>0)S.staffCount+=hires;
+    }
+  } else if(S.staffCount>staffCap*1.5&&!S.flags.merger){
+    // 明顯臃腫:每月自然精簡 5%
+    let cut=Math.max(1,Math.round(S.staffCount*0.05));
+    S.staffCount=Math.max(Math.round(staffCap*1.3),S.staffCount-cut);
+  }
   // 市占(行銷+談判驅動,有天花板)
   let shareG=(S.stats.sales*0.0015+S.stats.nego*0.0008)*(1+st*0.1);
   if(S.flags.global)shareG*=1.5;
   S.mktShare=clamp((S.mktShare||0)+shareG+(R()-0.5)*0.03,0,1);
   // 員工數自然變動
-  if(S.staffCount>0){S.staffCount=Math.max(1,Math.round(S.staffCount*(1+0.02+st*0.02+(S.stats.mgmt*0.002-0.008)+(R()-0.5)*0.04)));}
-  S.mcapHist.push(S.mcap);
+  if(S.staffCount>0){const capNow=staffCap||[3,20,60,200,600,1500,4000,12000,25000][Math.min(S.stageIdx,8)]||25000;let gr=0.005+st*0.005+(S.stats.mgmt*0.0008-0.004)+(R()-0.5)*0.01;let ns=Math.round(S.staffCount*(1+gr));S.staffCount=Math.max(1,Math.min(ns,capNow));}
+  S.mcapHist.push(S.mcap);if(S.mcapHist.length>600)S.mcapHist=S.mcapHist.slice(-600);
 
   // 高峰記錄
   S.peak=S.peak||{}; S.peak.netWorth=Math.max(S.peak.netWorth||0,netWorth(S)); S.peak.mcap=Math.max(S.peak.mcap||0,S.mcap);
@@ -657,16 +676,25 @@ function runOps(S){
 }
 /* 財務循環：估值、融資稀釋、股權攻防 */
 function runFinance(S){
-  if(S.age===0)return;
+  if(S.age<12)return;
   // 團隊成立:進入正式營運後若還沒組團隊,自動招募初始團隊
-  if(S.age===0)return;
+  if(S.age<12)return;
   // 團隊成立:進入正式營運後若還沒組團隊,自動招募初始團隊
   if(S.stageIdx>=1&&S.staffCount===0){S.staffCount=3;S.flags.hired=true;}
   const st=S.stageIdx, rev=S.revenue||1;
   // 估值倍數依階段遞增(未上市用營收倍數,上市後用市值)
   const mult=[1.2,2,3.5,6,10,16,22,28,35];
   if(S.stageIdx<6){let m=Math.round(rev*mult[st]*(1+(R()-0.5)*0.3));if(S.mcap>1e6)m=Math.round(S.mcap*clamp(1+(m-S.mcap)/Math.max(1,S.mcap),0.4,1.6));S.mcap=Math.max(1e4,m);}
-  else {let r2=0.1+(S.profitLast>0?S.stats.mgmt*0.006:0)+(R()-0.5)*0.4;if(R()<0.03)r2=-0.2-R()*0.2;S.mcap=Math.max(1e6,Math.round(S.mcap*(1+r2)));}
+  else {let r2=0.05+(S.profitLast>0?S.stats.mgmt*0.004:0)+(R()-0.5)*0.2;if(R()<0.03)r2=-0.15-R()*0.1;S.mcap=Math.max(1e6,Math.round(S.mcap*(1+r2)));
+    // 股價=市值÷固定股本,每月更新
+    const shares=S.staffCount*5000+500000;
+    S.stockPrice=Math.round(S.mcap/shares);S.stockHist.push(S.stockPrice);
+    if(S.stockHist.length>360)S.stockHist=S.stockHist.slice(-360);
+    // 上市後每月檢核掠奪者建倉
+    if(S.flags.listed&&R()<0.05+S.stageIdx*0.01){const bites=[1,2,2,3,3,4];S.enemyStake=Math.min(60,S.enemyStake+bites[Math.round(R()*5)]*0.6);
+      if(S.enemyStake>=25&&!S.flags.raiderWarn){S.flags.raiderWarn=true;mile(S,"🔍",`盤面上出現異樣的大買盤——有掠奪者正在悄悄收集你的股票（敵方持股 ${Math.round(S.enemyStake*10)/10}%）……`);}
+      if(S.enemyStake>=50&&!S.flags.raiderWin){S.flags.raiderWin=true;S.ending={t:"控制權易主",key:"raider",icon:"🦅"};S.alive=false;logLine(S.age,"🦅 掠奪者持股超過半數,股東會表決把你趕出董事會——"+S.name+"落入他人手中。",[],"death");}}
+  }
   if(S.flags.diluteNext){S.flags.diluteNext=false;let d=8+Math.round(R()*7);S.equity=Math.max(20,S.equity-d);S.pendingDilute=d;}
   // 上市後股權可稀釋增發
   if(S.stageIdx>=6&&R()<0.08){S.equity=Math.max(30,S.equity-5);}
@@ -681,7 +709,7 @@ function tryPromoteStage(S){
   // 規模門檻：以「年營收×2」與「淨值」取較高者，避免虧損局永遠卡死
   const scale=Math.max(S.revenue*2,netWorth(S),0);
   if(scale<(moneyGate[nx]||0))return;
-  if(S.age<({種子輪:1,天使輪:2,"A 輪":3,"B 輪":4,"C 輪":5,上市:6,控股:8}[nx]||99))return;
+  if(S.year<({種子輪:1,天使輪:2,"A 輪":3,"B 輪":4,"C 輪":5,上市:6,控股:8}[nx]||99))return;
   // 自動升級:能力資金都到位,水到渠成(事件也會推動)
   if(R()<0.35+S.stats.vision*0.003){
     S.stageIdx++; S.stage=keys[S.stageIdx];
@@ -702,11 +730,11 @@ function genRival(S){
 function ongoingCorp(S){
   if(!S.alive)return;
   // 競爭對手侵擾
-  if(S.age>=2&&S.rivals.length<(S.stageIdx>=6?3:1)&&R()<0.12+S.stageIdx*0.03){const r=genRival(S);S.rivals.push(r);mile(S,"⚔️",`市場出現新對手「${r.name}」…`);}
+  if(S.year>=2&&S.rivals.length<(S.stageIdx>=6?3:1)&&R()<0.12+S.stageIdx*0.03){const r=genRival(S);S.rivals.push(r);mile(S,"⚔️",`市場出現新對手「${r.name}」…`);}
   // 人才流失:管理能力不足、快樂低迷時流失
   if(S.staffCount>=3&&S.stats.mgmt<45&&R()<0.2){const c=Math.round(S.staffCount*0.12);S.staffCount=Math.max(1,S.staffCount-c);S.money-=Math.round(c*15e4);}
   // 信仰加成
-  if(S.stats.faith>20&&S.age%3===0&&S.money<0)S.money+=Math.round(S.revenue*0.02);
+  if(S.stats.faith>20&&S.age%36===0&&S.money<0)S.money+=Math.round(S.revenue*0.02);
 }
 /* 人脈(政商資本):拓展後可接近立委、官員、大金主 */
 function addConn(S,n){S.connections=clamp((S.connections||0)+n,0,100);}
@@ -719,9 +747,9 @@ const DICE_MILE=[
   {id:"stage3",cond:S=>S.stageIdx>=3,n:1,t:"A 輪後的新創圈視野"},
   {id:"ipo",cond:S=>S.stageIdx>=6,n:2,t:"敲鐘上市,商業新紀元"},
   {id:"share5",cond:S=>S.mktShare>=0.5,n:1,t:"半壁江山,壟斷前夕"},
-  {id:"a10",cond:S=>S.age>=10,n:1,t:"十年老店,閱歷淬煉"},
-  {id:"a20",cond:S=>S.age>=20,n:1,t:"廿年深耕,穩如磐石"},
-  {id:"a30",cond:S=>S.age>=30,n:1,t:"三十年基業,傳承在望"},
+  {id:"a10",cond:S=>S.year>=10,n:1,t:"十年老店,閱歷淬煉"},
+  {id:"a20",cond:S=>S.year>=20,n:1,t:"廿年深耕,穩如磐石"},
+  {id:"a30",cond:S=>S.year>=30,n:1,t:"三十年基業,傳承在望"},
   {id:"rich",cond:S=>netWorth(S)>=1e8,n:2,t:"身價破億,資源充沛"},
 ];
 function checkDiceMile(S){
@@ -756,6 +784,18 @@ function checkAgeMile(S){
 /* 多段式劇情鏈:現在的選擇,埋下 N 年後的後續事件 */
 function schedule(S,years,evId){if(!S.pending)S.pending=[];S.pending.push({at:S.age+Math.max(1,years),ev:evId});}
 const EV=[
+{id:"stockCrash",min:3,max:8,w:4,cond:S=>S.flags.listed&&S.year>=3&&S.equity>20,choice:true,q:"📉 股市劇烈回檔！你的股票單月暴跌，散戶哀鴻遍野。要怎麼應對？",
+ options:[
+  {t:"📢 公開說明會穩定信心",hint:"花錢但不流血",eff:S=>{S.mcap=Math.round(S.mcap*0.9);return{log:"召開說明會釋放利多，跌勢趨緩，市值縮水但人氣回流。",d:[...money(S,-3e6),...inc(S,{street:3,happy:2})]};}},
+  {t:"🛡️ 大筆回購護盤",hint:"花大錢護住股價",eff:S=>{let amt=Math.min(S.money*0.3,8e7);S.money-=amt;S.mcap=Math.round(S.mcap*0.95);return{log:`斥資 ${fmtMoney(amt)} 護盤，股價止跌回穩，現金流被吸掉一大口。`,d:inc(S,{street:4})};}},
+  {t:"🧘 躺平不動",hint:"讓市場自己修復",eff:S=>{S.mcap=Math.round(S.mcap*0.82);S.stockPrice=Math.round(S.mcap/(S.staffCount*5000+500000));return{log:"跌深自然有人接，但市值蒸發了 18%，輿論酸你無作為。",d:[...inc(S,{happy:-6})]};}},
+]},
+{id:"predatorBid",min:4,max:9,w:3,cond:S=>S.flags.listed&&S.enemyStake>=8,choice:true,q:"🦅 掠奪者舉牌了！公開宣布要收購你的公司，散戶開始拋售。",
+ options:[
+  {t:"⚔️ 反擊：增購自家股權",hint:"把敵方持股壓回去",eff:S=>{let amt=Math.min(S.money*0.35,1e8);S.money-=amt;const shares=S.staffCount*5000+500000;S.enemyStake=Math.max(0,S.enemyStake-amt/Math.max(1,S.stockPrice)/shares*100*1.8);return{log:`反收購大作戰！斥資 ${fmtMoney(amt)} 拉高敵方吃貨成本,對方持股降至 ${Math.round(S.enemyStake*10)/10}%。`,d:inc(S,{street:4,nego:2})};}},
+  {t:"🕊️ 談判:賣一部分給對方",hint:"化敵為友,分一杯羹",eff:S=>{S.money+=S.mcap*0.12;S.equity=Math.max(20,S.equity-10);S.flags.neutralized=true;return{log:"簽下和解協議,掠奪者轉為策略股東——你拿到一筆和解金,但交出了部分主導權。",d:[...inc(S,{nego:4,happy:-2})]};}},
+  {t:"🏰 毒丸防禦",hint:"兩敗俱傷的嚇阻",eff:S=>{S.flags.poisonPill=true;S.enemyStake=Math.max(0,S.enemyStake-5);S.mcap=Math.round(S.mcap*0.92);return{log:"祭出毒丸條款,掠奪者吃貨成本暴增被迫收手——你的股價也跌了一大截。",d:[...inc(S,{street:3,happy:-4})]};}},
+]},
 {id:"born",min:0,max:0,w:999,eff:S=>{
   logLine(0,`「${S.origin.nm}」起家的「${S.sector.tag||"新公司"}」在${S.hq.nm}設立。${S.cap.id==="gold"?"家裡贊助一桶金,氣勢如虹。":S.cap.id==="poor"?"家境清寒,每一步都要自己來。":"一切從一張桌子、一筆本金開始。"}`,[]);
   return [];
@@ -827,7 +867,7 @@ const EV=[
   let ok=chance(S,0.45+S.stats.street*0.005);
   if(ok){S.revenue=Math.round(S.revenue*1.4);mile(S,"🥚","缺蛋危機中你反向操作,搶到關鍵食材,同行眼紅。");return inc(S,{street:3,happy:3});}
   S.revenue=Math.round(S.revenue*0.75);return inc(S,{happy:-3});}},
-{id:"lobbyLaw",min:6,max:24,w:7,cond:S=>S.age>=4,choice:true,q:"立委主導修法,對你的產業影響巨大。要押注哪一邊?",
+{id:"lobbyLaw",min:6,max:24,w:7,cond:S=>S.year>=4,choice:true,q:"立委主導修法,對你的產業影響巨大。要押注哪一邊?",
  options:[
   {t:"支持修法,押注政策",hint:"跟政策走",eff:S=>{S.flags.lobby=true;let _t=chance(S,0.55);S._tmp=_t;if(_t){S.money+=3e6;S.flags.govSubsidy=true;return inc(S,{politics:5,happy:3});}S.money-=2e6;return inc(S,{politics:3,happy:-4});},res:S=>S._tmp?"押對了!拿到補貼紅利。":"修法未過,政治獻金打了水漂。"},
   {t:"保持距離,低調應對",hint:"明哲保身",eff:S=>{return inc(S,{vision:1});},res:S=>"你不表態,靜觀其變。"},
@@ -904,12 +944,12 @@ const EV=[
   {t:"合法規劃,節省稅負",hint:"財稅優化",eff:S=>{S.money+=Math.round(S.revenue*0.15);return inc(S,{finance:4});},res:S=>"稅負優化奏效,現金流更好了。"},
   {t:"拒絕,合規至上",hint:"形象無價",eff:S=>{if(chance(S,0.3)){S.flags.scandal=true;return inc(S,{happy:-4});}return inc(S,{vision:2});},res:S=>"你守住合規底線。"},
 ],},
-{id:"succession",min:15,max:38,w:5,cond:S=>S.stageIdx>=6&&S.age>=20,choice:true,q:"公司規模大了,二代接班vs.專業經理人——怎麼傳承?",
+{id:"succession",min:15,max:38,w:5,cond:S=>S.stageIdx>=6&&S.year>=20,choice:true,q:"公司規模大了,二代接班vs.專業經理人——怎麼傳承?",
  options:[
   {t:"子女接班",hint:"家族基業",eff:S=>{S.flags.legacy=true;S.alive=false;S.ending={key:"legacy",t:"家族傳承"};return inc(S,{happy:5});},res:S=>"你交棒給子女,基業代代相傳。"},
   {t:"交棒專業經理人",hint:"制度接班",eff:S=>{S.flags.legacy=true;S.alive=false;S.ending={key:"legacy",t:"制度傳承"};return inc(S,{mgmt:5,happy:3});},res:S=>"你用制度完成交棒,公司永續經營。"},
 ],},
-{id:"retireSell",min:12,max:35,w:5,cond:S=>S.age>=15&&S.stageIdx>=4,choice:true,q:"累了嗎?把公司賣給大集團,退休環遊世界?",
+{id:"retireSell",min:12,max:35,w:5,cond:S=>S.year>=15&&S.stageIdx>=4,choice:true,q:"累了嗎?把公司賣給大集團,退休環遊世界?",
  options:[
   {t:"賣掉,退休",hint:"自由人生",eff:S=>{S.alive=false;S.ending={key:"retire",t:"功成身退"};return inc(S,{happy:8});},res:S=>"你兌現夢想,把公司交給下一任。"},
   {t:"不賣,再拚一輪",hint:"壯志未酬",eff:S=>{return inc(S,{vision:3,happy:2});},res:S=>"你還有未竟的事業。"},
@@ -1123,14 +1163,14 @@ function clampStats(){const s=S.stats;for(const k in s)s[k]=clamp(Math.round(s[k
 const STAT_NM={vision:"遠見",mgmt:"管理",tech:"技術",sales:"行銷",finance:"財務",politics:"政商",nego:"談判",street:"手腕",happy:"士氣",luck:"運氣",faith:"信仰",money:"現金"};
 const BARCOL={vision:"#a78bfa",mgmt:"#7cc4ff",tech:"#5ad07a",sales:"#ffcf6b",finance:"#5ad07a",politics:"#ff9ec4",nego:"#5ad07a",street:"#ff9ec4",happy:"#ffcf6b"};
 function renderGame(){
-  $("ageLabel").textContent=S.age;$("idLabel").textContent=(S.name?S.name+" · ":"")+S.origin.nm+" · "+S.hq.nm;$("stageLabel").textContent=S.stage?"🏢 "+S.stage:"籌備期";
+  $("ageLabel").textContent=S.year+" 年 "+S.month+" 月";$("idLabel").textContent=(S.name?S.name+" · ":"")+S.origin.nm+" · "+S.hq.nm;$("stageLabel").textContent=S.stage?"🏢 "+S.stage:"籌備期";
   const s=S.stats;
   const prev=S._shown||{};
   $("statsBar").innerHTML=[["vision","遠見"],["mgmt","管理"],["tech","技術"],["sales","行銷"],["finance","財務"],["politics","政商"],["nego","談判"],["street","手腕"]].map(([k,nm])=>{const v=s[k],pv=prev[k];const fl=(pv!==undefined&&v!==pv)?(v>pv?" flash-up":" flash-down"):"";return `<div class="stat${fl}"><div class="k">${nm}</div><div class="v">${v}</div><div class="mini"><i style="width:${v}%;background:${BARCOL[k]}"></i></div></div>`;}).join("");
   const nw=netWorth(S);
   const mv=$("moneyLabel");mv.textContent=fmtMoney(nw);mv.classList.toggle("neg",nw<0);
   if(prev.money!==undefined&&nw!==prev.money){mv.classList.remove("flash-up","flash-down");void mv.offsetWidth;mv.classList.add(nw>prev.money?"flash-up":"flash-down");}
-  const asub=$("assetSub");if(asub){const parts=[];parts.push(`估值 ${fmtMoney(S.mcap).replace("NT$","")}`);if(S.equity<100)parts.push(`持股 ${S.equity}%`);parts.push(`營收 ${fmtMoney(S.revenue).replace("NT$","")}`);asub.textContent=parts.join("・");}
+  const asub=$("assetSub");if(asub){const parts=[];parts.push(`估值 ${fmtMoney(S.mcap).replace("NT$","")}`);if(S.flags.listed)parts.push(`股價 ${fmtMoney(S.stockPrice||0).replace("NT$","")}${S.enemyStake>0?` ⚠️敵方 ${Math.round(S.enemyStake*10)/10}%`:""}`);if(S.equity<100)parts.push(`持股 ${S.equity}%`);parts.push(`營收 ${fmtMoney(S.revenue).replace("NT$","")}`);asub.textContent=parts.join("・");}
   $("jobLabel").innerHTML="📊 "+(S.revenue>0?`年營收 ${fmtMoney(S.revenue).replace("NT$","")}${S.profitLast>=0?' (獲利 +'+fmtMoney(S.profitLast).replace("NT$","")+')':' (虧損 '+fmtMoney(S.profitLast).replace("NT$","")+')'}`:"預售/籌備中");
   const il=$("incomeLabel");il.textContent=`員工 ${S.staffCount} 人 · 市占 ${(S.mktShare*100).toFixed(1)}%`;
   {const gb=$("goalBar");const gg=(typeof GOALS!=="undefined"&&S.goal)?GOALS.find(g=>g.id===S.goal):null;if(gb){if(gg){const p=Math.round(clamp01(gg.prog(S))*100);gb.classList.remove("hidden");gb.innerHTML=`<div class="gb-head"><span class="gb-nm">${gg.icon} ${gg.nm}<small>你的企業志向</small></span><span class="gb-pct">${p}%</span></div><div class="gb-track"><div class="gb-fill" style="width:${p}%"></div></div>`;}else gb.classList.add("hidden");}}
@@ -1150,59 +1190,79 @@ function renderGame(){
 }
 function logLine(year,text,deltas,cls){
   const dtxt=(deltas||[]).filter(d=>d[1]!==0).map(d=>{const up=d[1]>0;const val=d[0]==="money"?fmtDelta(d[1]):(up?"+":"")+d[1];return `<span class="delta ${up?"up":"down"}">${STAT_NM[d[0]]||d[0]}${val}</span>`;}).join("");
-  const yr=year>=0?`<span class="yr">${year}歲</span>`:`<span class="yr">◆</span>`;
+  const y=Math.floor(year/12),m=year%12+1;const yr=year>=0?`<span class="yr">第 ${y} 年 ${m} 月</span>`:`<span class="yr">◆</span>`;
   S.log.push(`<div class="entry ${cls||""}">${yr}${text}${dtxt}</div>`);
   const el=$("log");el.innerHTML=S.log.join("");el.scrollTop=el.scrollHeight;
 }
 
-function stepYear(){
+function stepMonth(){
   if(!S.alive)return;
-  S.age++;
-  S.actedThisYear=false;
+  S.age++;S.year=Math.floor(S.age/12);S.month=S.age%12+1;
   const s=S.stats;
-  S.happySum+=s.happy;S.happyCount++;S.happyHist.push({x:S.age,y:s.happy});S.moneyHist.push({x:S.age,y:netWorth(S)});
-  // 營運循環:營收、毛利、固定成本、市占
+  const isYearEnd=(S.month===1); // 每年 1 月是新一年的開始,結算放在 12 月
+  // 每月進度:士氣歷史、淨值歷史(每年存一筆,平滑曲線)
+  if(S.month===1){S.happyHist.push({x:S.year,y:s.happy});S.moneyHist.push({x:S.year,y:netWorth(S)});}
+  // 營運循環(月版):營收、毛利、固定成本、市占
   runOps(S);
+  // 每月營運開支與利息(月版,年度利息/稅在年末結算)
+  if(S.money<0){S.money-=Math.round(Math.abs(S.money)*0.003);if(S.month===1)s.happy=clamp(s.happy-1,0,100);}
+  // 快樂微調
+  s.happy+=(S.profitLast>=0?0.6:0.3-s.happy*0.005);
+  // 籌備期(第 1 年,12 個月)
+  const prep=(S.stageIdx===0&&S.year===0);
+  if(prep){
+    // 籌備期每月投骰 1 顆,讓玩家有成長手感
+    if(S.month===12){logLine(S.age,"📦 一年籌備期滿,公司正式掛牌營運!",[],"mile");S.stageIdx=1;S.stage=S.stageKeys[1];S.flags.hired=true;S.staffCount=3;}
+    if(S.dice.length===0&&S.month<=11){
+      S.dice=[1+rnd(3)];
+      presentSkillAlloc();clampStats();renderGame();return;
+    }
+  }
   // 財務循環:估值、稀釋、階段晉升
   runFinance(S);
-  // 每年持續效果:競爭對手、人才流失
+  // 競爭對手
   ongoingCorp(S);
-  // 企業稅(依毛利率與營收)
-  if(S.revenue>0&&S.profitLast>0){
-    let rate=S.profitLast/S.revenue>0.3?0.28:0.2;
-    let tax=Math.round(S.profitLast*rate);
-    if(tax){S.money-=tax;S.ledger=(S.ledger||{});S.ledger.op-=tax;}
+  if(!prep&&S.month===12){
+    S.actedThisYear=false;
+    // 企業稅
+    if(S.revenue>0&&S.profitLast>0){
+      let rate=S.profitLast/S.revenue>0.3?0.28:0.2;
+      let tax=Math.round(S.profitLast*rate);
+      if(tax){S.money-=tax;S.ledger=(S.ledger||{});S.ledger.op-=tax;}
+    }
+    // 年度利息
+    if(S.money<0){S.money-=Math.round(Math.abs(S.money)*0.05);s.happy=clamp(s.happy-2,0,100);}
+    // 快樂回歸
+    s.happy+=(S.profitLast>=0?58:40-s.happy)*0.05;
+    // 健康折舊
+    if(S.year%4===0&&S.stageIdx>=3)s.street=clamp(s.street-1,0,100);
+    if(s.happy<35)s.street=clamp(s.street-1,0,100);
+    if(s.happy>70)s.street=clamp(s.street+1,0,100);
+    // 里程碑
+    checkWealthMile(S); checkAgeMile(S); checkDiceMile(S);
+    // 年度回顧
+    mile(S,"🗓️",`第 ${S.year} 年總結:營收 ${fmtMoney(S.revenue).replace("NT$","")},團隊 ${S.staffCount} 人,${S.money>=0?"現金流健康":"負債經營中"}`);
   }
-  // 利息支出(負債時)
-  if(S.money<0){S.money-=Math.round(Math.abs(S.money)*0.08);S.stats.happy=clamp(S.stats.happy-2,0,100);}
-  // 快樂回歸:現金流為正、獲利時快樂回升
-  s.happy+=(S.profitLast>=0?58:40-s.happy)*0.05;
-  // 階段越高、健康折舊(創辦人過勞)
-  if(S.age%4===0&&S.stageIdx>=3)s.street=clamp(s.street-1,0,100);
-  if(s.happy<35)s.street=clamp(s.street-1,0,100);
-  if(s.happy>70)s.street=clamp(s.street+1,0,100);
-  // 里程碑:身價/週年/條件骰子
-  checkWealthMile(S); checkAgeMile(S); checkDiceMile(S);
   // 死亡條件:破產/健康/高齡(見 checkDeath)
-  // 多段式劇情鏈:到期的後續事件優先觸發
+  // 多段式劇情鏈:到期的後續事件優先觸發(以年為單位到期)
   if(S.pending&&S.pending.length){
-    let idx=S.pending.findIndex(p=>p.at<=S.age);
+    let idx=S.pending.findIndex(p=>p.at<=S.year+1);
     while(idx>=0){
       const p=S.pending.splice(idx,1)[0];const cev=EV.find(e=>e.id===p.ev);
       if(cev&&(!cev.cond||cev.cond(S))){
         if(cev.choice){presentChoice(cev);clampStats();renderGame();return;}
-        applyEvent(cev);afterMain();return;
+        applyEvent(cev);afterMonth();return;
       }
-      idx=S.pending.findIndex(p=>p.at<=S.age);
+      idx=S.pending.findIndex(p=>p.at<=S.year+1);
     }
   }
-  // 特訓骰子:每 3 年 2 顆 + 里程碑獎勵骰
-  if(S.dice.length===0){
-    const normalDue=(S.age>=2&&S.age<=36&&S.age-S.lastAlloc>=3);
+  // 特訓骰子:每年 2 顆(非籌備期)+ 里程碑獎勵骰
+  if(S.dice.length===0&&!prep){
+    const normalDue=(S.year>=2&&S.year<=36&&S.year-S.lastAlloc>=3);
     const n=(normalDue?2:0)+(S.bonusDice||0);
     if(n>0){
       S.bonusDice=0;
-      if(normalDue)S.lastAlloc=S.age;
+      if(normalDue)S.lastAlloc=S.year;
       S.dice=[];for(let i=0;i<n;i++)S.dice.push(1+rnd(3));
       presentSkillAlloc();clampStats();renderGame();return;
     }
@@ -1213,12 +1273,12 @@ function stepYear(){
     if(ev.choice){presentChoice(ev);clampStats();renderGame();return;}
     applyEvent(ev);
   }
-  afterMain();
+  afterMonth();
 }
-function afterMain(){
+function afterMonth(){
   if(!S.alive){clampStats();renderGame();checkDeath();return;}
-  // 小事件 0~2
-  let n=(R()<0.6?1:0)+(R()<0.28?1:0);
+  // 每月小事件 0~1(年結算月較多)
+  let n=(R()<(S.month===12?0.65:0.5)?1:0);
   for(let i=0;i<n;i++){const m=pickEvent("minor");if(m)applyEvent(m);}
   clampStats();renderGame();checkDeath();
 }
@@ -1236,7 +1296,7 @@ function pickEvent(kind){
     if(e.jail||e.chain)return false;
     const ek=e.kind||"main";if(ek!==kind)return false;
     if(e.id==="born")return false;
-    if(S.age<e.min||S.age>e.max)return false;
+    if(S.year<e.min||S.year>e.max)return false;
     if(e.once&&S.firedOnce[e.id])return false;
     if(e.cond&&!e.cond(S))return false;
     return true;
@@ -1246,13 +1306,13 @@ function pickEvent(kind){
   for(const e of cand){let ww=typeof e.w==="function"?e.w(S):e.w;ww=Math.max(0,ww);if(isBad(e))ww*=badMul();
     const last=S.evLast[e.id];
     if(kind==="minor"){
-      if(last!==undefined&&S.age-last<6)ww*=0.04;
+      if(last!==undefined&&S.year-last<6)ww*=0.04;
       const cnt=S.evCount[e.id]||0;if(cnt>=2)ww*=Math.max(0.08,1-(cnt-1)*0.36);
-    } else if(last!==undefined&&S.age-last<4)ww*=0.1;
+    } else if(last!==undefined&&S.year-last<4)ww*=0.1;
     w.push(ww);tot+=ww;}
   if(tot<=0)return null;
   let r=R()*tot,chosen=cand[cand.length-1];for(let i=0;i<cand.length;i++){r-=w[i];if(r<=0){chosen=cand[i];break;}}
-  S.evLast[chosen.id]=S.age;S.evCount[chosen.id]=(S.evCount[chosen.id]||0)+1;
+  S.evLast[chosen.id]=S.year;S.evCount[chosen.id]=(S.evCount[chosen.id]||0)+1;
   return chosen;
 }
 const BAD_IDS=new Set(["破產邊緣","破產收場","駭客攻擊","入獄調查","惡意併購","黑金","工檢"]);
@@ -1262,11 +1322,11 @@ function presentChoice(ev){
   const q=typeof ev.q==="function"?ev.q(S):ev.q;
   const opts=typeof ev.options==="function"?ev.options(S):ev.options;
   ev._opts=opts;
-  $("choiceArea").innerHTML=`<div class="choice-box kind-choice"><div class="cb-tag">❓ 這個抉擇</div><div class="q">${S.age}歲 · ${q}</div><div class="opts">${opts.map((o,i)=>`<button class="btn small" data-i="${i}">${o.t}${o.hint?`<span class="hint">${o.hint}</span>`:""}</button>`).join("")}</div></div>`;
+  $("choiceArea").innerHTML=`<div class="choice-box kind-choice"><div class="cb-tag">❓ 這個抉擇</div><div class="q">第 ${S.year} 年 ${S.month} 月 · ${q}</div><div class="opts">${opts.map((o,i)=>`<button class="btn small" data-i="${i}">${o.t}${o.hint?`<span class="hint">${o.hint}</span>`:""}</button>`).join("")}</div></div>`;
   $("choiceArea").querySelectorAll("button").forEach(b=>b.onclick=()=>{
     const o=opts[+b.dataset.i];
     let deltas=o.eff(S)||[];
-    if(ev.grow&&S.flags.late&&S.age>=40)deltas=doubleGrow(S,deltas);
+    if(ev.grow&&S.flags.late&&S.year>=40)deltas=doubleGrow(S,deltas);
     if(ev.once)S.firedOnce[ev.id]=true;
     clampStats();
     const res=typeof o.res==="function"?o.res(S):(o.res||"");
@@ -1301,7 +1361,7 @@ function renderSkillPanel(){
     const can=selDie>=0&&!full;
     return `<div class="skrow ${full?"capfull":(can?"cantake":"")}" data-k="${sd.k}"><span class="skn">${sd.icon}${sd.nm}</span><span class="skd">${dots} <span class="skcap">${xp}/${cap}${full?" 滿":""}</span></span></div>`;
   }).join("");
-  $("choiceArea").innerHTML=`<div class="choice-box kind-train"><div class="cb-tag">🎲 特訓 · 分配骰子</div><div class="q">${S.age} 歲・把骰子投入專長<br><small style="font-weight:400;color:var(--muted)">直接點專長＝投入目前的骰子（自動換下一顆）；灰點是先天潛力上限</small></div><div class="dice-row">${dice||'<span style="color:var(--muted)">骰子用完了</span>'}</div><div class="skgrid">${rows}</div><button class="btn small" id="skDone" style="margin-top:10px">${S.dice.length?"放棄剩餘骰子・完成 ▸":"完成 ▸"}</button></div>`;
+  $("choiceArea").innerHTML=`<div class="choice-box kind-train"><div class="cb-tag">🎲 特訓 · 分配骰子</div><div class="q">第 ${S.year} 年 ${S.month} 月・把骰子投入專長<br><small style="font-weight:400;color:var(--muted)">直接點專長＝投入目前的骰子（自動換下一顆）；灰點是先天潛力上限</small></div><div class="dice-row">${dice||'<span style="color:var(--muted)">骰子用完了</span>'}</div><div class="skgrid">${rows}</div><button class="btn small" id="skDone" style="margin-top:10px">${S.dice.length?"放棄剩餘骰子・完成 ▸":"完成 ▸"}</button></div>`;
   $("choiceArea").querySelectorAll(".skdie").forEach(b=>b.onclick=()=>{selDie=+b.dataset.i;renderSkillPanel();});
   $("choiceArea").querySelectorAll(".skrow").forEach(el=>el.onclick=()=>{if(selDie<0)return;const k=el.dataset.k;applyDieToSkill(k);renderGame();if(S.dice.length===0){finishTraining();}else renderSkillPanel();});
   $("skDone").onclick=()=>finishTraining();
@@ -1314,15 +1374,15 @@ function checkDeath(){
   const s=S.stats;let die=false,reason="";
   if(S.pendingDeath){die=true;reason=S.pendingDeath;S.pendingDeath=null;}
   if(!die&&!S.alive){die=true;reason=S.ending&&(S.ending.t||S.ending.nm)?(S.name+"的故事以「"+S.ending.t+"」收場。"):(S.name+"走到了生涯的終點。");}
-  if(!die&&S.money<=-50000000&&S.mcap<5000000){die=true;reason="現金流徹底斷裂，銀行斷頭、資方袖手旁觀——"+S.name+"宣布破產倒閉。";}
+  if(!die&&S.money<=-100000000&&netWorth(S)<10000000){die=true;reason="現金流徹底斷裂，銀行斷頭、資方袖手旁觀——"+S.name+"宣布破產倒閉。";}
   if(!die&&(S.stats.street||0)<=0){die=true;reason="經營手腕耗盡、組織失靈，"+S.name+"無以為繼，走入歷史。";}
   if(!die){
     // 街頭手腕＝企業體質:越低越容易被併購/擠出局
     let stRisk=Math.max(0,(28-s.street))*0.0012;
     if(stRisk>0&&R()<stRisk&&S.mcap<S.staffCount*3000000){die=true;reason="企業體質虛弱，一場價格戰就讓你無以為繼。";}
   }
-  if(!die&&S.age>=100){die=true;reason="歲月不饒人，"+S.name+"的創辦人在高齡安詳離世，企業走入歷史。";}
-if(S.age>=60&&!die){die=true;reason=S.stageIdx>=8?("功成身退，"+S.name+"走完輝煌一生，交棒給下一代。"):(S.age>=55?"創辦人安詳退休，"+S.name+"的故事告一段落。":"創辦人行使交棒條款，"+S.name+"就此走入歷史。");}
+  if(!die&&S.year>=80){die=true;S.ending={t:"嵩壽落幕",key:"retire",icon:"🌅"};reason="歲月不饒人，"+S.name+"的創辦人享嵩壽而逝，企業傳奇落幕。";}
+if(!die&&S.year>=60){die=true;S.ending={t:"功成身退",key:"retire",icon:"🌅"};reason=S.stageIdx>=8?("功成身退，"+S.name+"走完輝煌一生，交棒給下一代。"):(S.year>=5?"創辦人安詳退休，"+S.name+"的故事告一段落。":"創辦人行使交棒條款，"+S.name+"就此走入歷史。");}
   if(die){
     S.alive=false;logLine(S.age,reason,[],"death");
     // 倒閉收尾
@@ -1338,7 +1398,7 @@ function presentActions(){
   const avail=ACTIONS.filter(a=>a.cond(S));
   if(!avail.length){logLine(S.age,"（目前沒有可主動進行的行動）",[],"minor");return;}
   S.paused=true;$("btnNext").disabled=true;$("btnAct").disabled=true;
-  $("choiceArea").innerHTML=`<div class="choice-box kind-action"><div class="cb-tag">💡 主動行動 · 每年一次</div><div class="q">${S.age}歲・你想主動做什麼？</div><div class="opts">${avail.map((a,i)=>`<button class="btn small" data-i="${i}">${a.icon} ${a.t}</button>`).join("")}<button class="btn ghost small" data-i="-1">先算了</button></div></div>`;
+  $("choiceArea").innerHTML=`<div class="choice-box kind-action"><div class="cb-tag">💡 主動行動 · 每年一次</div><div class="q">第 ${S.year} 年 ${S.month} 月・你想主動做什麼？</div><div class="opts">${avail.map((a,i)=>`<button class="btn small" data-i="${i}">${a.icon} ${a.t}</button>`).join("")}<button class="btn ghost small" data-i="-1">先算了</button></div></div>`;
   $("choiceArea").querySelectorAll("button").forEach(b=>b.onclick=()=>{
     const i=+b.dataset.i;
     $("choiceArea").innerHTML="";S.paused=false;$("btnNext").disabled=false;
@@ -1347,7 +1407,7 @@ function presentActions(){
   });
 }
 $("btnAct").onclick=()=>{if(!S.paused&&S.alive&&!S.actedThisYear)presentActions();};
-$("btnNext").onclick=()=>{if(!S.paused&&S.alive)stepYear();};
+$("btnNext").onclick=()=>{if(!S.paused&&S.alive)stepMonth();};
 
 /* ==========================================================================
    結算
@@ -1378,7 +1438,7 @@ function endGame(){
   const a=S.achv;
   if(SKILLS.some(sd=>sk(sd.k)>=5))a.push("🎯 專精大師");
   if(SKILLS.filter(sd=>sk(sd.k)>=3).length>=3)a.push("🧩 多才多藝");
-  if(S.age>=40)a.push("🕯️ 長壽企業");else if(S.age<15)a.push("💀 英年早逝");
+  if(S.year>=40)a.push("🕯️ 長壽企業");else if(S.year<15)a.push("💀 英年早逝");
   if((p.mcap||0)>=1e12)a.push("💎 兆級帝國");else if((p.mcap||0)>=1e10)a.push("💰 百億市值");
   if(S.money<0)a.push("💳 負債收場");
   if((p.revenue||0)>=1e10)a.push("📈 營收破百億");
@@ -1391,7 +1451,7 @@ function endGame(){
   const uniq=[...new Set(a)];
 
   // 分數
-  let raw=S.age*1.5+avgHappy*1.2+wealthScore(p.netWorth||p.money)*1.6+wealthScore(p.mcap)*1.2+totalSkill*1.6
+  let raw=S.year*1.5+avgHappy*1.2+wealthScore(p.netWorth||p.money)*1.6+wealthScore(p.mcap)*1.2+totalSkill*1.6
     +(STAGE_PRESTIGE[S.peakStage]||0)*9
     +(S.flags.twRichest?110:0)+(S.flags.global?45:0)+(S.flags.ipo?40:0);
   // 家世加減
@@ -1413,7 +1473,7 @@ function endGame(){
   S.gradeCapped=gradeCapped;
   if(S.ending&&S.ending.t)title=S.ending.t;
   // 墮落結局覆蓋（身敗名裂優先於榮耀）
-const endMap={"jail":{icon:"⛓️",t:"涉黑入獄、鐵窗收場"},"bankrupt":{icon:"📉",t:"破產退場、黯然離席"},"exit":{icon:"🤝",t:"併購套現、功成身退"},"legacy":{icon:"🏛️",t:"基業傳承、世代延續"},"retire":{icon:"🌅",t:"功成身退、自由人生"}};
+const endMap={"jail":{icon:"⛓️",t:"涉黑入獄、鐵窗收場"},"bankrupt":{icon:"📉",t:"破產退場、黯然離席"},"exit":{icon:"🤝",t:"併購套現、功成身退"},"legacy":{icon:"🏛️",t:"基業傳承、世代延續"},"retire":{icon:"🌅",t:"功成身退、自由人生"},"raider":{icon:"🦅",t:"控制權易主、黯然離席"}};
   const endLabel=S.flags.fraudJail?{icon:"⛓️",t:"財務造假、入獄調查的一生"}:(S.flags.darkline?{icon:"🌑",t:"梟雄霸業、黑白通吃的一生"}:((S.ending&&endMap[S.ending.key])||null));
   if(endLabel)title=endLabel.t;
 
@@ -1442,7 +1502,8 @@ const endMap={"jail":{icon:"⛓️",t:"涉黑入獄、鐵窗收場"},"bankrupt":
   const row=(nm,v,cls)=>`<div class="s" style="grid-column:1/3;display:flex;justify-content:space-between"><span>${nm}</span><b class="${cls}">${(v<0?"−":"")+fmtMoney(Math.abs(Math.round(v))).replace("NT$","")}</b></div>`;
   $("sumStats").innerHTML=`
     <div class="s"><span>綜合評分</span><b>${score}</b></div>
-    <div class="s"><span>經營年數</span><b>${S.age} 年</b></div>
+    <div class="s"><span>經營年數</span><b>${S.year} 年</b></div>
+    <div class="s"><span>股市紀錄</span><b>${S.flags.listed?("🔔 上市公司,股價 "+fmtMoney(S.stockPrice||0).replace("NT$","")+" · 敵方持股 "+Math.round(S.enemyStake*10)/10+"%"):"未上市"}</b></div>
     <div class="s"><span>市值峰值</span><b>${fmtMoney(p.mcap||0)}</b></div>
     <div class="s"><span>最終身家</span><b>${fmtMoney(nwFinal)}</b></div>
     <div class="s"><span>最終階段</span><b>${S.stage||"已退場"}</b></div>
@@ -1457,14 +1518,14 @@ const endMap={"jail":{icon:"⛓️",t:"涉黑入獄、鐵窗收場"},"bankrupt":
     ${expRows.filter(r=>r[1]>0).map(r=>row(r[0],-r[1],"down")).join("")}
     ${row("　支出合計",-totalOut,"down")}`;
   const ms=S.milestones;
-  $("timeline").innerHTML=`<div class="th">📜 企業里程碑</div>`+(ms.length?ms.map(m=>`<div class="tl-item"><div class="ta">${m.age} 年</div><div class="ti">${m.icon} ${m.text}</div></div>`).join(""):`<div class="tl-item"><div class="ti" style="color:var(--muted)">這家企業沒有留下太多足跡……</div></div>`);
+  $("timeline").innerHTML=`<div class="th">📜 企業里程碑</div>`+(ms.length?ms.map(m=>`<div class="tl-item"><div class="ta">${(function(){var y=Math.floor(m.age/12),mm=m.age%12;return mm===0?(y)+" 年 12 月":y+" 年 "+mm+" 月";})()}</div><div class="ti">${m.icon} ${m.text}</div></div>`).join(""):`<div class="tl-item"><div class="ti" style="color:var(--muted)">這家企業沒有留下太多足跡……</div></div>`);
   $("achvList").innerHTML=`<div style="width:100%;font-size:12px;color:var(--muted);margin-bottom:6px">📖 成就圖鑑：已解鎖 <b style="color:var(--accent2)">${store.size}/${ACHIEVEMENTS.length}</b>${newly.length?`　🆕 本局新增 ${newly.length} 項`:""}　<a href="#" id="openGallery">查看圖鑑 ▸</a></div>`
     +newly.map(ac=>`<span style="border-color:var(--gold);color:var(--gold)">🆕 ${ac.icon}${ac.nm}</span>`).join("")
     +uniq.map(x=>`<span>${x}</span>`).join("");
   const og=$("openGallery");if(og)og.onclick=(e)=>{e.preventDefault();openGallery();};
   endData={letter,title,score,avgHappy,uniq,ms,
-    sub:`${S.name} · 創辦人 ${S.founder} · ${S.sector.tag||""} · ${S.hq.nm} · 經營 ${S.age} 年 · 🌱${S.seed}`,
-    age:S.age, peakMoney:p.mcap||0, finalMoney:nwFinal,
+    sub:`${S.name} · 創辦人 ${S.founder} · ${S.sector.tag||""} · ${S.hq.nm} · 經營 ${S.year} 年 · 🌱${S.seed}`,
+    age:S.year, peakMoney:p.mcap||0, finalMoney:nwFinal, listed:S.flags.listed, stockPrice:S.stockPrice||0, enemyStake:S.enemyStake||0,
     topSkills,
     happyHist:S.happyHist, moneyHist:S.moneyHist,
     incRows:incRows.filter(r=>r[1]>0), expRows:expRows.filter(r=>r[1]>0), totalIn, totalOut,
@@ -1473,7 +1534,7 @@ const endMap={"jail":{icon:"⛓️",t:"涉黑入獄、鐵窗收場"},"bankrupt":
     achv:{size:store.size,total:ACHIEVEMENTS.length,newly:newly.length}};
   // 不直接跳結算：讓玩家先看完人生最後的記錄，再自己點擊查看結算
   $("btnNext").disabled=true;const _ba=$("btnAct");if(_ba)_ba.disabled=true;
-  $("choiceArea").innerHTML=`<div class="choice-box kind-end"><div class="cb-tag">🏁 企業終點</div><div class="q">${S.name} 的故事走到了終點，經營 ${S.age} 年。</div><div class="opts"><button class="btn small" id="btnViewEnd">🪦 查看這場商戰的結算 →</button></div></div>`;
+  $("choiceArea").innerHTML=`<div class="choice-box kind-end"><div class="cb-tag">🏁 企業終點</div><div class="q">${S.name} 的故事走到了終點，經營 ${S.year} 年。</div><div class="opts"><button class="btn small" id="btnViewEnd">🪦 查看這場商戰的結算 →</button></div></div>`;
   const _ve=$("btnViewEnd");if(_ve)_ve.onclick=()=>show("screen-end");
 }
 
