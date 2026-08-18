@@ -567,7 +567,7 @@ const ACHIEVEMENTS=[
   {id:"goldenSpoon",icon:"🥄",nm:"含湯匙起跑",c:S=>S.cap&&(S.cap.id==="gold"||S.cap.id==="rich")},
   {id:"genius",icon:"🧠",nm:"天生 entrepreneur",c:S=>S.flags.genius},
   {id:"corner",icon:"🏪",nm:"小而美",c:S=>S.flags.corner},
-  {id:"longRun",icon:"⏳",nm:"三十年老店",c:S=>S.age>=30},
+  {id:"longRun",icon:"⏳",nm:"三十年老店",c:S=>S.year>=30},
   {id:"downsize",icon:"🪓",nm:"大裁員",c:S=>S.flags.layoff},
   {id:"ipoFail",icon:"🚫",nm:"上市夢碎",c:S=>S.flags.ipoFailed},
   {id:"divorce",icon:"💔",nm:"拆夥分家",c:S=>S.flags.split},
@@ -785,7 +785,7 @@ function checkWealthMile(S){
 const AGE_MILE=[[1,"🎂","滿一歲,活下來了"],[3,"🎂","三週歲,站穩腳跟"],[5,"🎂","五週年,業界新秀"],[10,"🎉","十年老店"],[15,"🎉","十五年基業"],[20,"🏆","廿年傳奇"],[25,"🏆","銀禧之年"],[30,"🥇","三十年基業"],[40,"🥇","不惑之年,屹立不搖"]];
 function checkAgeMile(S){
   if(!S.ageMile)S.ageMile={};
-  for(const [a,icon,t] of AGE_MILE){ if(!S.ageMile[a]&&S.age>=a){S.ageMile[a]=1;mile(S,icon,t);} }
+  for(const [a,icon,t] of AGE_MILE){ if(!S.ageMile[a]&&S.year>=a){S.ageMile[a]=1;mile(S,icon,t);} }
 }
 /* 多段式劇情鏈:現在的選擇,埋下 N 年後的後續事件 */
 function schedule(S,years,evId){if(!S.pending)S.pending=[];S.pending.push({at:S.age+Math.max(1,years),ev:evId});}
@@ -821,7 +821,7 @@ const EV=[
 {id:"firstCustomer",min:1,max:6,once:true,w:16,choice:true,q:"人生第一個大客戶上門,但條件苛刻——接不接?",
  options:[
   {t:"接,薄利衝量",hint:"現金流救命",eff:S=>{S.flags.firstDeal=true;S.money+=Math.round(S.revenue*0.4);S.revenue=Math.round(S.revenue*1.3);return inc(S,{sales:3,happy:2});},res:S=>"大單入帳,現金流活了!"},
-  {t:"砍價,爭取好條件",hint:"談判換利潤",eff:S=>{let ok=chance(S,0.35+S.stats.nego*0.005);S.flags.firstDeal=true;if(ok){S.money+=Math.round(S.revenue*0.7);S.revenue=Math.round(S.revenue*1.1);}else{S.revenue=Math.round(S.revenue*0.9);}return inc(S,{nego:ok?4:2,sales:1});},res:S=>ok?"談判成功,條件漂亮!":"談判破局,客戶縮單。"},
+  {t:"砍價,爭取好條件",hint:"談判換利潤",eff:S=>{S._ok=chance(S,0.35+S.stats.nego*0.005);S.flags.firstDeal=true;if(S._ok){S.money+=Math.round(S.revenue*0.7);S.revenue=Math.round(S.revenue*1.1);}else{S.revenue=Math.round(S.revenue*0.9);}return inc(S,{nego:S._ok?4:2,sales:1});},res:S=>S._ok?"談判成功,條件漂亮!":"談判破局,客戶縮單。"},
 ],},
 {id:"taxAudit",min:2,max:12,w:8,cond:S=>S.revenue>1e6,eff:S=>{
   let fine=Math.round(S.revenue*0.08);let ok=chance(S,0.4+S.stats.finance*0.005);
@@ -890,13 +890,13 @@ const EV=[
 ],},
 {id:"ipoCraze",min:8,max:30,w:6,cond:S=>S.stageIdx>=4,choice:true,q:"投顧老師在節目狂推你所在賽道,市場熱錢湧入,要跟著炒作估值嗎?",
  options:[
-  {t:"順勢拉估值募資",hint:"熱錢是錢",eff:S=>{let moon=chance(S,0.5+S.stats.finance*0.005);if(moon){S.mcap=Math.round((S.mcap||S.revenue*10)*1.6);S.money+=12e6;return inc(S,{finance:3,happy:6});}S.flags.scandal=true;return inc(S,{finance:1,happy:-6});},res:S=>moon?"市場瘋狂,你募資抽到好籤!":"熱錢反噬,被媒體點名『炒作』。"},
+  {t:"順勢拉估值募資",hint:"熱錢是錢",eff:S=>{S._moon=chance(S,0.5+S.stats.finance*0.005);S._tmp=S._moon;if(S._moon){S.mcap=Math.round((S.mcap||S.revenue*10)*1.6);S.money+=12e6;return inc(S,{finance:3,happy:6});}S.flags.scandal=true;return inc(S,{finance:1,happy:-6});},res:S=>S._tmp?"市場瘋狂,你募資抽到好籤!":"熱錢反噬,被媒體點名『炒作』。"},
   {t:"不跟風,穩紮穩打",hint:"基本面至上",eff:S=>{return inc(S,{vision:3});},res:S=>"你守住基本面,不參與狂熱。"},
 ],},
 {id:"scandalRumor",min:5,max:22,w:8,choice:true,q:"社群突然瘋傳:「這家公司內部爆料財務造假!」媒體來電要採訪——",
  options:[
-  {t:"召開記者會澄清",hint:"公開透明",eff:S=>{let ok=chance(S,0.5+S.stats.sales*0.005);S._scandalOk=ok;if(ok){S.flags.scandal=false;return inc(S,{sales:3,vision:2});}S.flags.scandal=true;S.flags.fraudJail=true;return inc(S,{happy:-6});},res:S=>(S._scandalOk!==undefined?S._scandalOk:ok)?"澄清成功,輿論反轉!":"澄清無力,輿論坐實傳言。"},
-  {t:"冷處理,時間會過去",hint:"靜待平息",eff:S=>{let ok=chance(S,0.5);S._scandalOk=ok;if(!ok){S.flags.scandal=true;return inc(S,{happy:-4});}return inc(S,{happy:1});},res:S=>(S._scandalOk===false)?"輿論果然沒過去,燒了三個月。":"冷處理居然奏效,大家很快忘了。"},
+  {t:"召開記者會澄清",hint:"公開透明",eff:S=>{S._ok=chance(S,0.5+S.stats.sales*0.005);S._scandalOk=S._ok;if(S._ok){S.flags.scandal=false;return inc(S,{sales:3,vision:2});}S.flags.scandal=true;S.flags.fraudJail=true;return inc(S,{happy:-6});},res:S=>S._ok?"澄清成功,輿論反轉!":"澄清無力,輿論坐實傳言。"},
+  {t:"冷處理,時間會過去",hint:"靜待平息",eff:S=>{S._ok=chance(S,0.5);S._scandalOk=S._ok;if(!S._ok){S.flags.scandal=true;return inc(S,{happy:-4});}return inc(S,{happy:1});},res:S=>(S._scandalOk===false)?"輿論果然沒過去,燒了三個月。":"冷處理居然奏效,大家很快忘了。"},
 ],},
 {id:"fraudInvest",min:8,max:32,w:5,cond:S=>S.flags.scandal,eff:S=>{
   let ok=chance(S,0.4+S.stats.finance*0.004+S.stats.street*0.004);
@@ -913,12 +913,12 @@ const EV=[
   mile(S,"💔","公司資不抵債,債權人接手——你的企業生涯以破產告終。");return inc(S,{happy:-8});}},
 {id:"whiteKnight",min:8,max:30,w:5,cond:S=>S.flags.hostile,choice:true,q:"被你惡意收購的對手反撲,拉來『白衣騎士』競購——市場譁然!",
  options:[
-  {t:"加碼死守",hint:"錢多說話",eff:S=>{let ok=chance(S,0.4+S.stats.finance*0.005);if(ok){S.mktShare=clamp(S.mktShare+0.15,0,1);S.mcap=Math.round(S.mcap*1.3);return inc(S,{finance:5,street:2});}S.money-=2e7;return inc(S,{finance:2,happy:-5});},res:S=>ok?"併購成功,市占再上一城!":"加碼失敗,彈盡援絕。"},
+  {t:"加碼死守",hint:"錢多說話",eff:S=>{S._ok=chance(S,0.4+S.stats.finance*0.005);if(S._ok){S.mktShare=clamp(S.mktShare+0.15,0,1);S.mcap=Math.round(S.mcap*1.3);return inc(S,{finance:5,street:2});}S.money-=2e7;return inc(S,{finance:2,happy:-5});},res:S=>S._ok?"併購成功,市占再上一城!":"加碼失敗,彈盡援絕。"},
   {t:"退場談判",hint:"落袋為安",eff:S=>{S.money+=8e6;S.flags.hostile=false;return inc(S,{nego:4});},res:S=>"談判退出,拿到補償金。"},
 ],},
 {id:"ipoMoment",min:8,max:30,w:8,once:true,cond:S=>S.stageIdx>=5&&!S.flags.ipoFailed,choice:true,q:"保薦券商問你:上市掛牌時機,要等完美還是把握窗口?",
  options:[
-  {t:"立即掛牌",hint:"窗口不等人",eff:S=>{let ok=chance(S,0.45+S.stats.finance*0.006);if(ok){return inc(S,{finance:5,happy:8});}S.flags.ipoFailed=true;return inc(S,{happy:-5,finance:2});},res:S=>ok?"敲鐘!公司上市,股權流動性解放!":"掛牌即破發,市場信心動搖。"},
+  {t:"立即掛牌",hint:"窗口不等人",eff:S=>{S._ok=chance(S,0.45+S.stats.finance*0.006);if(S._ok){return inc(S,{finance:5,happy:8});}S.flags.ipoFailed=true;return inc(S,{happy:-5,finance:2});},res:S=>S._ok?"敲鐘!公司上市,股權流動性解放!":"掛牌即破發,市場信心動搖。"},
   {t:"再等一年",hint:"等風向",eff:S=>{return inc(S,{vision:2,finance:1});},res:S=>"你選擇等待更好的窗口。"},
 ],},
 {id:"hostileBid",min:9,max:34,w:6,cond:S=>S.stageIdx>=5,choice:true,q:"一檔私募基金盯上你的公司,釋出『友善收購』訊號——賣不賣?",
@@ -942,7 +942,7 @@ const EV=[
 ],},
 {id:"templeVisit",min:1,max:30,w:5,choice:true,q:"開工前,員工說要拜拜求財神——你要不要給公司求個籤?",
  options:[
-  {t:"去,心誠則靈",hint:"心靈寄託",eff:S=>{S.stats.faith=(S.stats.faith||0)+15;S.money-=100000;let moon=chance(S,0.3);S._tmp=moon;if(moon){S.flags.koiHit=true;S.money+=5e6;mile(S,"🏮","求到上上籤!接下來數月順風順水。");}return inc(S,{happy:moon?5:2});},res:S=>S._tmp?"籤詩應驗,生意旺旺!":"心誠則靈,求個心安。"},
+  {t:"去,心誠則靈",hint:"心靈寄託",eff:S=>{S.stats.faith=(S.stats.faith||0)+15;S.money-=100000;S._moon=chance(S,0.3);S._tmp=S._moon;if(S._moon){S.flags.koiHit=true;S.money+=5e6;mile(S,"🏮","求到上上籤!接下來數月順風順水。");}return inc(S,{happy:S._moon?5:2});},res:S=>S._tmp?"籤詩應驗,生意旺旺!":"心誠則靈,求個心安。"},
   {t:"不去,科學經營",hint:"務實",eff:S=>{return inc(S,{vision:2});},res:S=>"你選擇用數據說話。"},
 ],},
 {id:"taxHaven",min:7,max:32,w:4,cond:S=>S.flags.global,choice:true,q:"海外子公司盈餘可放在『低稅區』——避稅天堂的誘惑,要嗎?",
@@ -971,7 +971,7 @@ const EV=[
   S.money-=500000;return inc(S,{sales:1,happy:-1});}},
 {id:"govTender",min:4,max:28,kind:"minor",w:6,cond:S=>S.stageIdx>=2,choice:true,q:"政府標案公開招標,預算優渥——要投標嗎?",
  options:[
-  {t:"全力投標",hint:"大單但流程長",eff:S=>{let ok=chance(S,0.3+S.stats.politics*0.005+S.stats.nego*0.004);if(ok){S.money+=5e6;S.flags.govSubsidy=true;return inc(S,{politics:3,finance:2});}S.money-=1500000;return inc(S,{politics:1,happy:-3});},res:S=>ok?"得標!政府大單入袋。":"流標了,投標費用打了水漂。"},
+  {t:"全力投標",hint:"大單但流程長",eff:S=>{S._ok=chance(S,0.3+S.stats.politics*0.005+S.stats.nego*0.004);if(S._ok){S.money+=5e6;S.flags.govSubsidy=true;return inc(S,{politics:3,finance:2});}S.money-=1500000;return inc(S,{politics:1,happy:-3});},res:S=>S._ok?"得標!政府大單入袋。":"流標了,投標費用打了水漂。"},
   {t:"不參與",hint:"聚焦本業",eff:S=>{return inc(S,{vision:1});},res:S=>"你專注在既有市場。"},
 ],},
 {id:"viral",min:2,max:20,kind:"minor",w:6,eff:S=>{
@@ -1022,7 +1022,7 @@ const EV=[
   S.money-=2500000;mile(S,"🐛","技術債爆發,系統大改版花了一大筆。");return inc(S,{tech:3,happy:-2});}},
 {id:"influencer",min:2,max:20,kind:"minor",w:5,choice:true,q:"網紅來洽談業配合作,報價不菲——",
  options:[
-  {t:"合作,砸行銷",hint:"聲量爆破",eff:S=>{S.money-=1200000;let ok=chance(S,0.5+S.stats.sales*0.005);S.revenue=Math.round(S.revenue*(ok?1.3:1.02));return inc(S,{sales:ok?4:1,happy:ok?3:-2});},res:S=>ok?"業配爆發,銷量翻倍!":"業配平平,錢花了沒水花。"},
+  {t:"合作,砸行銷",hint:"聲量爆破",eff:S=>{S.money-=1200000;S._ok=chance(S,0.5+S.stats.sales*0.005);S.revenue=Math.round(S.revenue*(S._ok?1.3:1.02));return inc(S,{sales:S._ok?4:1,happy:S._ok?3:-2});},res:S=>S._ok?"業配爆發,銷量翻倍!":"業配平平,錢花了沒水花。"},
   {t:"婉拒",hint:"自有管道",eff:S=>{return inc(S,{vision:1});},res:S=>"你決定靠自有管道行銷。"},
 ],},
 {id:"secondStore",min:3,max:16,kind:"minor",w:5,cond:S=>S.sector&&S.sector.id==="food"&&S.stageIdx>=2,eff:S=>{
